@@ -15,8 +15,20 @@ library(ggplot2)
 ```{r}
 load('data-overview.RData')
 mytheme <- gridExtra::ttheme_default(
-    core = list(padding = unit(c(2.5, 2.5), "mm")))
+    core = list(padding = unit(c(2.5, 2.5), "mm"), bg_params = list(fill = 'white', col=NA),
+            fg_params=list(fontface=1)),
+  colhead=list(fg_params=list(col="navyblue", fontface=1)))
+# 
+# ttheme_minimal(
+#   core=list(bg_params = list(fill = blues9[1:4], col=NA),
+#             fg_params=list(fontface=3)),
+#   colhead=list(fg_params=list(col="navyblue", fontface=4L)),
+#   rowhead=list(fg_params=list(col="orange", fontface=3L)))
+
+colnames(df_data)[3:5] <- c('# cells', '# features', 'Missing values (%)')
 tbl <- tableGrob(df_data, theme = mytheme, rows = NULL)
+gg_data <- plot_grid(tbl)
+# gg_data <- plot_grid(tbl)
 ```
 
 # Liger
@@ -51,11 +63,11 @@ names(col_palette) <- stages
 
 
 ```{r}
-gg_promoter_view <- liger_plots_promoter[[1]] + labs(x = 'tSNE 1', y = 'tSNE 2', col = '') + scale_color_discrete(labels = c(met = 'met_promoter', rna = 'rna'))
+gg_promoter_view <- liger_plots_promoter[[1]] + labs(x = 'tSNE 1', y = 'tSNE 2', col = '') + scale_color_discrete(labels = c(met = 'met_promoter', rna = 'rna')) + theme(legend.position=c(1,0.05), legend.justification=c(1,0))
     # guides(col = guide_legend(title = ''))
-gg_promoter_stage <- liger_plots_promoter[[2]] + labs(x = 'tSNE 1', y = 'tSNE 2', col = '') + scale_color_manual(values = col_palette, na.value="grey50") 
-gg_genebody_view <- liger_plots_genebody[[1]] + labs(x = 'tSNE 1', y = 'tSNE 2', col = '') + scale_color_discrete(labels = c(met = 'met_genebody', rna = 'rna'), na.value="grey50") 
-gg_genebody_stage <- liger_plots_genebody[[2]] + labs(x = 'tSNE 1', y = 'tSNE 2', col = '') + scale_color_manual(values = col_palette)
+gg_promoter_stage <- liger_plots_promoter[[2]] + labs(x = 'tSNE 1', y = 'tSNE 2', col = '') + scale_color_manual(values = col_palette, na.value="grey50") +  theme(legend.position=c(1,0), legend.justification=c(1,0))
+gg_genebody_view <- liger_plots_genebody[[1]] + labs(x = 'tSNE 1', y = 'tSNE 2', col = '') + scale_color_discrete(labels = c(met = 'met_genebody', rna = 'rna'), na.value="grey50")  + theme(legend.position=c(1,.05), legend.justification=c(1,0))
+gg_genebody_stage <- liger_plots_genebody[[2]] + labs(x = 'tSNE 1', y = 'tSNE 2', col = '') + scale_color_manual(values = col_palette) + theme(legend.position=c(1,0), legend.justification=c(1,0))
 ```
 
 # MOSAIC
@@ -259,9 +271,76 @@ kable(round(t(df), 2))
 ```
 
 ```{r}
+plot_table <- function(d, ...) {
+    library(gtable)
+    gt <- function(d, colours="black", fill=NA){
+        
+        label_matrix <- as.matrix(d)
+        
+        nc <- ncol(label_matrix)
+        nr <- nrow(label_matrix)
+        n <- nc*nr
+        
+        colours <- rep(colours, length.out = n)
+        fill <- rep(fill, length.out = n)
+        
+        theme <- ttheme_default(base_size = 12, base_colour = "black", base_family = "",
+                                parse = FALSE, padding = unit(c(4, 4), "mm"))
+        ## text for each cell
+        labels <- lapply(seq_len(n), function(ii) 
+            textGrob(label_matrix[ii], gp=gpar(col=colours[ii])))
+        label_grobs <- matrix(labels, ncol=nc)
+        
+        ## define the fill background of cells
+        fill <- lapply(seq_len(n), function(ii) 
+            rectGrob(gp=gpar(fill=fill[ii])))
+        
+        ## some calculations of cell sizes
+        row_heights <- function(m){
+            do.call(unit.c, apply(m, 1, function(l)
+                max(do.call(unit.c, lapply(l, grobHeight)))))
+        }
+        
+        col_widths <- function(m){
+            do.call(unit.c, apply(m, 2, function(l)
+                max(do.call(unit.c, lapply(l, grobWidth)))))
+        }
+        
+        ## place labels in a gtable
+        g <- gtable_matrix("table", grobs=label_grobs, 
+                           widths=col_widths(label_grobs) + unit(4,"mm"), 
+                           heights=row_heights(label_grobs) + unit(4,"mm"))
+        
+        ## add the background
+        g <- gtable_add_grob(g, fill, t=rep(seq_len(nr), each=nc), 
+                             l=rep(seq_len(nc), nr), z=0, name="fill")
+        
+        g
+    }
+    
+    core <- gt(d, ...)
+    colhead <- gt(t(colnames(d)))
+    rowhead <- gt(c("", rownames(d)))
+    g <- rbind(colhead, core, size = "first")
+    g <- cbind(rowhead, g, size = "last")
+    plot_grid(g)
+}
+
+```
+
+```{r}
+gg_accuracy <- plot_table(round(t(df), 2))
+# gridExtra::grid.table(round(t(df), 2))
+# plot_grid(gridExtra::grid.table(round(t(df), 2)))
+```
+
+
+```{r}
 mytheme <- gridExtra::ttheme_default(
     core = list(padding = unit(c(2.5, 2.5), "mm")))
+tableGrob(round(t(df), 2), theme = ttheme_minimal())
 pls_tbl <- tableGrob(round(t(df), 2), theme = mytheme)
+gg_pls_kmeans <- plot_grid(pls_tbl)
 ```
 
 ```{r}
@@ -304,9 +383,12 @@ plot_grid(pls_no.impute, pls_tbl, ncol = 1, rel_widths = c(2,1), rel_heights = c
 <!-- ``` -->
 
 ```{r}
+ggsave(filename = 'data-overview.pdf', plot = gg_data)
 ggsave(filename = 'pls.pdf', plot = pls_no.impute)
-ggsave(filename = 'pls-kmeans.pdf', plot = plot_grid(pls_tbl))
+ggsave(filename = 'pls-kmeans.pdf', plot = plot_grid(pls_tbl) + theme_void())
 ggsave(filename = 'mosaic.pdf', plot = gg_mosaic, width = 10, height = 4)
+ggsave(filename = 'liger-stage.pdf', plot = gg_genebody_stage, width = 7, height = 5.5)
+ggsave(filename = 'liger-view.pdf', plot = gg_genebody_view, width = 7, height = 5.5)
 ```
 
 
