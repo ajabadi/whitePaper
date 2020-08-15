@@ -1,0 +1,409 @@
+---
+title: "scNMTseq-figure"
+output: pdf_document
+---
+
+
+# Data Overview
+
+```{r}
+library(grid)
+library(gridExtra)
+library(ggplot2)
+```
+
+```{r}
+load('data-overview.RData')
+mytheme <- gridExtra::ttheme_default(
+    core = list(padding = unit(c(2.5, 2.5), "mm"), bg_params = list(fill = 'white', col=NA),
+            fg_params=list(fontface=1)),
+  colhead=list(fg_params=list(col="navyblue", fontface=1)))
+# 
+# ttheme_minimal(
+#   core=list(bg_params = list(fill = blues9[1:4], col=NA),
+#             fg_params=list(fontface=3)),
+#   colhead=list(fg_params=list(col="navyblue", fontface=4L)),
+#   rowhead=list(fg_params=list(col="orange", fontface=3L)))
+
+colnames(df_data)[3:5] <- c('# cells', '# features', 'Missing values (%)')
+tbl <- tableGrob(df_data, theme = mytheme, rows = NULL)
+gg_data <- plot_grid(tbl)
+# gg_data <- plot_grid(tbl)
+```
+
+# Liger
+
+```{r}
+library(liger)
+library(MultiAssayExperiment)
+library(BIRSBIO2020.scNMTseq.LIGER)
+library(ggplot2)
+```
+```{r}
+gastru.mae <- readRDS(url('https://cloudstor.aarnet.edu.au/plus/s/Xzf5vCgAEUVgbfQ/download?path=%2Foutput&files=scnmtseq_gastrulation_mae_AllCells.rds'))
+drop_lineages = c('Primitive_endoderm','Visceral_endoderm', 'ExE_ectoderm')
+metadata = read.table("https://cloudstor.aarnet.edu.au/plus/s/Xzf5vCgAEUVgbfQ/download?path=%2Foutput&files=sample-metadata_matching-cells.txt",header=T,sep=",")
+gastru.mae <- gastru.mae[,,grep("rna|met",names(assays(gastru.mae)))]
+gastru.mae <- gastru.mae[, !(gastru.mae$lineage %in% drop_lineages),]
+gastru.mae <- gastru.mae[,gastru.mae$pass_metQC==TRUE & gastru.mae$pass_rnaQC==TRUE]
+
+```
+
+```{r}
+load('liger-scnmtseq.RData')
+```
+
+```{r}
+# Create colour palettes for stages:
+stages <- c("E4.5", "E5.5", "E6.5", "E7.5")
+# col_palette <- dput(viridisLite::viridis(n = length(stages)))
+col_palette <- c("#440154FF", "#31688EFF", "#35B779FF", "#FDE725FF")
+names(col_palette) <- stages
+```
+
+
+```{r}
+gg_promoter_view <- liger_plots_promoter[[1]] + labs(x = 'tSNE 1', y = 'tSNE 2', col = '') + scale_color_discrete(labels = c(met = 'met_promoter', rna = 'rna')) + theme(legend.position=c(1,0.05), legend.justification=c(1,0))
+    # guides(col = guide_legend(title = ''))
+gg_promoter_stage <- liger_plots_promoter[[2]] + labs(x = 'tSNE 1', y = 'tSNE 2', col = '') + scale_color_manual(values = col_palette, na.value="grey50") +  theme(legend.position=c(1,0), legend.justification=c(1,0), na.value="grey50")
+gg_genebody_view <- liger_plots_genebody[[1]] + labs(x = 'tSNE 1', y = 'tSNE 2', col = '') +
+    scale_color_discrete(labels = c(met = 'met_genebody', rna = 'rna'),
+                         na.value = "grey50")  + theme(legend.position = c(0.93, .88),
+                                                       legend.justification = c(0.8, 0),
+                                                       legend.box.background = element_rect(colour = "black"),
+                                                       legend.title=element_blank())
+gg_genebody_stage <- liger_plots_genebody[[2]] + labs(x = 'tSNE 1', y = 'tSNE 2', col = '') + scale_color_manual(values = col_palette, na.value="grey50") + theme(legend.position=c(1,0), legend.justification=c(1,0))
+```
+
+# MOSAIC
+
+https://github.com/arorarshi/scNMT_seq_MOSAIC
+
+```{r}
+# system('git clone https://github.com/arorarshi/scNMT_seq_MOSAIC')
+```
+
+```{r}
+library(BIRSBIO2020.scNMTseq.MOSAIC)
+```
+
+```{r}
+rbindlistWithNames <- function(lst, new_col = "dataset") {
+  lst_with_newcol <- mapply(x=names(lst), y=lst, FUN = function(x, y){
+    y[,new_col] <- x
+    y
+  }, SIMPLIFY = FALSE)
+  Reduce(rbind, lst_with_newcol)
+}
+```
+
+```{r}
+load("mosaic/scNMT_seq_MOSAIC/data/cv.stats.stage.noimp.rmEmbryonicLineage.Rdata")
+
+names(cv.stats) <- c("met_genebody", "met_promoter", "met_cgi", "met_DHS", "rna", 
+"integration")
+cv.stats <- lapply(cv.stats, function(x){
+    lapply(x, function(y){
+        res <- as.data.frame(apply(y, 2, median))
+        colnames(res) <- 'median'
+        res$cluster <- 2:7
+        res[,2:1]
+    })
+})
+cv.stats <- lapply(cv.stats, function(x) {
+    rbindlistWithNames(lapply(x, as.data.frame), new_col = 'measure')
+})
+cv.stats <- rbindlistWithNames(cv.stats, new_col = 'mode')
+```
+
+```{r}
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  grDevices::hcl(h = hues, l = 65, c = 100)[1:n]
+}
+```
+
+```{r}
+mode_pallete <- gg_color_hue(n = 6)
+names(mode_pallete) <- c("met_genebody", "met_promoter", "met_cgi", "met_DHS", "rna", 
+"integration")
+mode_pallete['integration'] <- 'black'
+```
+
+```{r}
+gg_mosaic <- ggplot(cv.stats, aes(x = cluster, y = median, col = mode)) + 
+    geom_point() + geom_line() + theme_classic() + 
+    facet_wrap(
+        . ~ measure,
+        scales = "free_y",
+        nrow = 1,
+        strip.position = "left",
+        labeller = as_labeller(c(AMI = "AMI", spwss = "SPWSS"))
+    )  +
+    ylab(NULL) +
+    theme(strip.background = element_blank(),
+          strip.placement = "outside") +
+    scale_color_manual(values = mode_pallete) + ylim(c(0,1))
+```
+
+
+<!-- ```{r} -->
+
+<!-- pdf('mosaic.pdf', width = 12) -->
+<!-- all.rdata<-names(cv.stats) -->
+<!-- plat.col = c("cadetblue", "darkred", "orange","purple", "forestgreen", "black") -->
+<!-- par(mfrow=c(1,2)) -->
+<!-- for (i in 1:length(all.rdata)){ -->
+<!--   if(i==1){plot(x = c(2:7), y=apply(cv.stats[[i]]$AMI, 2, median), col=plat.col[i],type="o", xlab="k cluster", ylab="adjusted MI", bty="l", lwd=2, ylim=c(0,1), cex.lab=1.5, cex.axis=1.2, pch=8)} -->
+
+<!--   if(i!=1){lines(x = c(2:7), y=apply(cv.stats[[i]]$AMI, 2, median), col=plat.col[i], type="o",lwd=2, pch=8)} -->
+
+<!-- } -->
+<!-- legend("topright", all.rdata, col=plat.col, bty="n", lty=1, lwd = 2,ncol = 2, cex=0.9) -->
+<!-- for (i in 1:length(all.rdata)){ -->
+<!--   if(i==1){plot(x = c(2:7), y=apply(cv.stats[[i]]$spwss, 2, median), col=plat.col[i],type="o", xlab="k cluster", ylab="SPWSS", bty="l", lwd=2, ylim=c(0,1), cex.lab=1.5, cex.axis=1.2, pch=8)} -->
+
+<!--   if(i!=1){lines(x = c(2:7), y=apply(cv.stats[[i]]$spwss, 2, median), col=plat.col[i], type="o",lwd=2, pch=8)} -->
+
+<!-- } -->
+<!-- dev.off() -->
+
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- library(cowplot) -->
+<!-- library(magick) -->
+<!-- library(pdftools) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- png('mosaic.png') -->
+<!-- foo <- magick::image_convert(mosaic, format = 'png') -->
+<!-- plot(foo) -->
+<!-- dev.off() -->
+<!-- mosaic <- magick::image_read_pdf('mosaic.pdf') -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- mosaic -->
+<!-- ``` -->
+
+# PLS
+
+```{r}
+library(BIRSBIO2020.scNMTseq.PLS)
+```
+
+```{r}
+mmspls <- readRDS('/Users/alabadi/Projects/analysis/R/_fork/multiOmics/BIRSBIO2020/BIRSBIO2020.scNMTseq.PLS/BIRSBIO2020.scNMTseq.PLS/vignettes/savedata/MultiModalSparsePLS-All.rds')
+mmspls.imputed <- readRDS('/Users/alabadi/Projects/analysis/R/_fork/multiOmics/BIRSBIO2020/BIRSBIO2020.scNMTseq.PLS/BIRSBIO2020.scNMTseq.PLS/vignettes/savedata/MultiModalSparsePLS-All-imputed.rds')
+```
+
+
+```{r}
+plot_pls <- function(pls_obj, stage, legend.title = 'Stage', comp = c(1,2), col_palette) {
+  variates <- lapply(pls_obj$variates, function(arr){
+    df <- as.data.frame(arr[,comp])
+    df$stage <- stage
+    df
+  })
+  variates <- rbindListWithNames(variates, new_col = 'Modality')
+  axes <- colnames(variates)[1:2]
+  axes_labels <- paste0('component ', comp)
+  ggplot(variates) + 
+    theme_classic() +
+    geom_point(aes_string(x = axes[1], y = axes[2], col = 'stage'), alpha = 0.75) +
+    facet_wrap(.~Modality, ncol = 2, scales = "free") +
+    scale_color_manual(values = col_palette) +
+    labs(x = axes_labels[1], y = axes_labels[2], col = 'Stage') +
+    theme(legend.position=c(0.9,0), legend.justification=c(0.6,.15), 
+          legend.text=element_text(size=9), 
+          legend.box.background = element_rect(colour = "black"),
+          legend.title=element_text(size=9),
+            strip.text.x = element_text(size = 10, face = 'bold')) 
+}
+```
+
+
+```{r}
+kmeans_accuracy <- function(variates, labels) {
+  names(labels) <- rownames(variates)
+  labels <- as.data.frame(labels)
+  labels$cell <- rownames(labels)
+  kmeans_res <- kmeans(x = variates, centers = length(unique(labels$labels)), iter.max = 3000, nstart = 50)
+  labels$cluster <- kmeans_res$cluster
+  tbl <- table(labels$labels, labels$cluster)
+  stage_cluster <- rep(NA, length(unique(labels$cluster)))
+  names(stage_cluster) <- rownames(tbl)
+  for (stage in rownames(tbl)) {
+    stage_cluster[stage] <- which.max(tbl[stage,])
+  }
+  ## order columns
+  tbl <- tbl[,stage_cluster[rownames(tbl)]]
+  total_cells <- rowSums(tbl)
+  class_weight <- total_cells / sum(total_cells)
+  misclassified <- rowSums(tbl) - diag(tbl)
+  err_class <- misclassified / total_cells
+  balanced_err <- mean(err_class)
+  1 - balanced_err
+}
+```
+
+```{r}
+# Create colour palettes for stages:
+stages <- c("E4.5", "E5.5", "E6.5", "E7.5")
+# col_palette <- dput(viridisLite::viridis(n = length(stages)))
+col_palette <- c("#440154FF", "#31688EFF", "#35B779FF", "#FDE725FF")
+names(col_palette) <- stages
+```
+
+```{r}
+pls_no.impute <- 
+  plot_pls(pls_obj = mmspls, stage = mmspls$stage, col_palette = col_palette)
+pls_no.impute
+pls_impute <- 
+  plot_pls(pls_obj = mmspls.imputed, stage = mmspls$stage, col_palette = col_palette)
+pls_impute
+```
+
+```{r}
+set.seed(427)
+df <- data.frame(
+  ## without imputation
+    accuracy_noImpute = sapply(mmspls$variates, function(x) {
+        kmeans_accuracy(variates = x[,1:2], labels = mmspls$stage)
+    }),
+    ## with imputation
+    accuracy_impute = sapply(mmspls.imputed$variates, function(x) {
+        kmeans_accuracy(variates = x[,1:2], labels = mmspls$stage)
+    })
+)
+
+kable(round(t(df), 2))
+```
+
+```{r}
+plot_table <- function(d, ...) {
+    library(gtable)
+    gt <- function(d, colours="black", fill=NA){
+        
+        label_matrix <- as.matrix(d)
+        
+        nc <- ncol(label_matrix)
+        nr <- nrow(label_matrix)
+        n <- nc*nr
+        
+        colours <- rep(colours, length.out = n)
+        fill <- rep(fill, length.out = n)
+        
+        theme <- ttheme_default(base_size = 12, base_colour = "black", base_family = "",
+                                parse = FALSE, padding = unit(c(4, 4), "mm"))
+        ## text for each cell
+        labels <- lapply(seq_len(n), function(ii) 
+            textGrob(label_matrix[ii], gp=gpar(col=colours[ii])))
+        label_grobs <- matrix(labels, ncol=nc)
+        
+        ## define the fill background of cells
+        fill <- lapply(seq_len(n), function(ii) 
+            rectGrob(gp=gpar(fill=fill[ii])))
+        
+        ## some calculations of cell sizes
+        row_heights <- function(m){
+            do.call(unit.c, apply(m, 1, function(l)
+                max(do.call(unit.c, lapply(l, grobHeight)))))
+        }
+        
+        col_widths <- function(m){
+            do.call(unit.c, apply(m, 2, function(l)
+                max(do.call(unit.c, lapply(l, grobWidth)))))
+        }
+        
+        ## place labels in a gtable
+        g <- gtable_matrix("table", grobs=label_grobs, 
+                           widths=col_widths(label_grobs) + unit(4,"mm"), 
+                           heights=row_heights(label_grobs) + unit(4,"mm"))
+        
+        ## add the background
+        g <- gtable_add_grob(g, fill, t=rep(seq_len(nr), each=nc), 
+                             l=rep(seq_len(nc), nr), z=0, name="fill")
+        
+        g
+    }
+    
+    core <- gt(d, ...)
+    colhead <- gt(t(colnames(d)))
+    rowhead <- gt(c("", rownames(d)))
+    g <- rbind(colhead, core, size = "first")
+    g <- cbind(rowhead, g, size = "last")
+    plot_grid(g)
+}
+
+```
+
+```{r}
+gg_accuracy <- plot_table(round(t(df), 2))
+# gridExtra::grid.table(round(t(df), 2))
+# plot_grid(gridExtra::grid.table(round(t(df), 2)))
+```
+
+
+```{r}
+mytheme <- gridExtra::ttheme_default(
+    core = list(padding = unit(c(2.5, 2.5), "mm")))
+tableGrob(round(t(df), 2), theme = ttheme_minimal())
+pls_tbl <- tableGrob(round(t(df), 2), theme = mytheme)
+gg_pls_kmeans <- plot_grid(pls_tbl)
+```
+
+```{r}
+p <- pls_no.impute
+
+inset <- pls_tbl
+
+ggdraw(p + theme_half_open(12)) +
+  draw_plot(inset, 0.5, 0, .9, .4, scale = 0.17) +
+  draw_plot_label(
+    c("A", "B"),
+    c(0, 0.45),
+    c(1, 0.95),
+    size = 12
+  )
+```
+
+```{r}
+plot_grid(pls_no.impute, pls_tbl, ncol = 1, rel_widths = c(2,1), rel_heights = c(9,1))
+```
+
+
+
+# Figure
+
+<!-- ```{r} -->
+<!-- library(cowplot) -->
+<!-- library(magick) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- ## top: 2/3 overview - 1/3 liger alignment -->
+<!-- ## bottom 1/3 MOSAIC - 2/3 PLS with/without imputation -->
+<!-- cow_top <- plot_grid(tbl, gg_promoter_view + scale_alpha_manual(values= 0.9), rel_widths = c(2,1), nrow = 1, labels = c('A', 'B')) -->
+<!-- cow_bottom <- plot_grid(mosaic) -->
+<!-- plot_grid( -->
+<!--   tbl, NULL, NULL, gg_promoter_view, gg_genebody_stage, gg_genebody_view, -->
+<!--   labels = "AUTO",rel_widths = c(1, 0.2, 1), nrow = 2 -->
+<!-- ) -->
+<!-- ``` -->
+
+```{r}
+ggsave(filename = 'data-overview.pdf', plot = gg_data)
+ggsave(filename = 'pls-impute.pdf', plot = pls_impute 
+       # + theme(legend.position = 'none')
+       , width = 5, height = 5)
+ggsave(filename = 'pls-no_impute.pdf', plot = pls_no.impute + theme(legend.title = element_blank()), width = 5, height = 5)
+ggsave(filename = 'pls-kmeans.pdf', plot = plot_grid(pls_tbl) + theme_void())
+ggsave(filename = 'mosaic.pdf', plot = gg_mosaic, width = 6, height = 2.4)
+ggsave(filename = 'liger-stage.pdf', plot = gg_genebody_stage + theme(legend.box.background = element_rect(colour = "black"), legend.title = element_blank()), width = 5, height = 4)
+ggsave(filename = 'liger-view.pdf', plot = gg_genebody_view,  width = 5, height = 4)
+```
+
+

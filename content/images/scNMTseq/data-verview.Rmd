@@ -1,0 +1,89 @@
+---
+title: "scNMTseq-figure"
+output: pdf_document
+---
+
+```{r}
+setwd('/Users/alabadi/Projects/analysis/R/_fork/multiOmics/BIRSBIO2020/whitePaper/content/images/scNMTseq/')
+library(kableExtra)
+```
+
+```{r}
+## ------------- Overview
+data_path <- url('https://cloudstor.aarnet.edu.au/plus/s/Xzf5vCgAEUVgbfQ/download?path=%2Foutput&files=scnmtseq_gastrulation_mae_AllCells.rds')
+
+
+## use custom path if local file is availble
+data_path <- '/Users/alabadi/Projects/analysis/R/_fork/multiOmics/BIRSBIO2020/BIRSBIO2020.scNMTseq.PLS/BIRSBIO2020.scNMTseq.PLS/vignettes/savedata/scnmtseq_gastrulation_mae-sce.rds'
+
+gastru.mae <- readRDS(url('https://cloudstor.aarnet.edu.au/plus/s/Xzf5vCgAEUVgbfQ/download?path=%2Foutput&files=scnmtseq_gastrulation_mae_AllCells.rds'))
+drop_lineages = c('Primitive_endoderm','Visceral_endoderm', 'ExE_ectoderm')
+metadata = read.table("https://cloudstor.aarnet.edu.au/plus/s/Xzf5vCgAEUVgbfQ/download?path=%2Foutput&files=sample-metadata_matching-cells.txt",header=T,sep=",")
+gastru.mae <- gastru.mae[,,grep("rna|met",names(assays(gastru.mae)))]
+gastru.mae <- gastru.mae[, !(gastru.mae$lineage %in% drop_lineages),]
+gastru.mae <- gastru.mae[,gastru.mae$pass_metQC==TRUE & gastru.mae$pass_rnaQC==TRUE]
+```
+
+
+```{r}
+## helper to get % of missing values in an array
+get_pct_missing <- function(arr) {
+    round(100*sum(is.na(arr))/prod(dim(arr)))
+}
+## get dimensions and % of missing values for all assays
+views <- c(
+    rna = 'Gene expression',
+    met_promoter = 'Promoter methylation',
+    met_genebody = 'Genebody methylation',
+    met_cgi = 'CGI methylation',
+    met_DHS = 'DHS methylation'
+)
+df <- mapply(v=names(views), w=experiments(gastru.mae)[names(views)], z = views, FUN = function(v, w, z)
+{
+    c(
+        'Data view' = z,
+        'Name' = v,
+        'N (# of cells)' = dim(w)[2],
+        'P (# of features)' = dim(w)[1],
+        'missing values (%)' = get_pct_missing(w)
+    )
+}, SIMPLIFY = FALSE)
+df_data <-t(data.frame(df))
+save(df_data, file = 'data-overview.RData')
+```
+
+<!-- ```{r} -->
+<!-- library(gridExtra) -->
+<!-- pdf("data-overview.pdf", height=6, width=8) -->
+<!-- grid.table(df, rows=NULL) -->
+<!-- dev.off() -->
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+<!-- kable.data <- kable(df, align = 'l', row.names = FALSE) %>% kable_styling(bootstrap_options = 'striped', ) -->
+<!-- kable.data -->
+<!-- save_kable(kable.data, file='kable.pdf') -->
+<!-- as_image(kable.data, file = 'foo.png', width=12, height = 5, zoom = 1.5) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- kable.data -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- kable_as_image(kable.data, filename = 'fooooooo', keep_pdf = TRUE) -->
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+<!-- pdf('data-overview.pdf') -->
+<!-- kable.data -->
+<!-- dev.off() -->
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+<!-- kable(t(df), align = 'l', row.names = FALSE) %>% kable_styling(bootstrap_options = 'striped', full_width = TRUE) -->
+<!-- ``` -->
+
