@@ -34,8 +34,9 @@ gg_data <- plot_grid(tbl)
 # RNA
 
 ```{r}
-rna.sce.matching <- readRDS('rna.sce.matching.umap.rds')
-rna.sce <- readRDS('rna.sce.umap.rds')
+load('rna.sce.matching.RData')
+# rna.sce.matching <- readRDS('rna.sce.matching.umap.rds')
+# rna.sce <- readRDS('rna.sce.umap.rds')
 ```
 
 ```{r}
@@ -47,23 +48,25 @@ names(col_palette) <- stages
 ## helper function to create UMAP plots coloured by stage
 plot_reducedDims <- function(sce, reducedDim = 'UMAP', 
                              dims = c(1,2), col_palette) {
-    comps.prefix <- ifelse(reducedDim == 'UMAP', 'UMAP_', 'PC_')
-    df <- data.frame(reducedDim(sce, reducedDim))[,dims]
-    axes <- colnames(df) <- paste0(comps.prefix, dims)
-    df$stage <- sce$stage
-    ggplot(df, aes_string(axes[1], axes[2])) + geom_point(aes_string(col='stage')) +
-        theme_classic()+ scale_color_manual(values = col_palette) + labs(col = 'Stage')
+  comps.prefix <- ifelse(reducedDim == 'UMAP', 'UMAP_', 'PC_')
+  df <- data.frame(reducedDim(sce, reducedDim))[,dims]
+  axes <- colnames(df) <- paste0(comps.prefix, dims)
+  df$stage <- sce$stage
+  ggplot(df, aes_string(axes[1], axes[2])) + geom_point(aes(col=stage), alpha = 0.75) +
+    theme_classic()+ scale_color_manual(values = col_palette) + labs(col = 'Stage') +
+    theme(legend.box.background = element_rect(colour = "black"))
 }
-
+library(ggplot2)
 ```
 
 ```{r}
-gg_rna_pca <- plot_reducedDims(rna.sce.matching, reducedDim = 'PCA', col_palette = col_palette)
+plot_reducedDims(rna.sce.matching, reducedDim = 'UMAP', col_palette = col_palette)
+ggsave('umap-rna.matching.pdf', width = 4, height = 2.3)
 ```
 
 ```{r}
-gg_rna <- plot_reducedDims(rna.sce.matching, col_palette = col_palette)
-plot_reducedDims(rna.sce, col_palette = col_palette)
+# gg_rna <- plot_reducedDims(rna.sce.matching, col_palette = col_palette)
+# plot_reducedDims(rna.sce, col_palette = col_palette)
 ```
 
 
@@ -249,10 +252,10 @@ plot_pls <- function(pls_obj, stage, legend.title = 'Stage', comp = c(1,2), col_
   ggplot(variates) + 
     theme_classic() +
     geom_point(aes_string(x = axes[1], y = axes[2], col = 'stage'), alpha = 0.75) +
-    facet_wrap(.~Modality, ncol = 2, scales = "free") +
+    facet_wrap(.~Modality, ncol = 3, scales = "free") +
     scale_color_manual(values = col_palette) +
     labs(x = axes_labels[1], y = axes_labels[2], col = 'Stage') +
-    theme(legend.position=c(0.9,0), legend.justification=c(0.6,.15), 
+    theme(legend.position=c(0.9,0.06), legend.justification=c(0.6,.15), 
           legend.text=element_text(size=9), 
           legend.box.background = element_rect(colour = "black"),
           legend.title=element_text(size=9),
@@ -435,7 +438,7 @@ ggsave(filename = 'data-overview.pdf', plot = gg_data)
 ggsave(filename = 'rna-umap.pdf', plot = gg_rna + theme(legend.position = 'none'))
 ggsave(filename = 'pls-impute.pdf', plot = pls_impute 
        # + theme(legend.position = 'none')
-       , width = 5, height = 5)
+       , width = 6, height = 3)
 ggsave(filename = 'pls-no_impute.pdf', plot = pls_no.impute + theme(legend.title = element_blank()), width = 5, height = 5)
 ggsave(filename = 'pls-kmeans.pdf', plot = plot_grid(pls_tbl) + theme_void())
 ggsave(filename = 'mosaic.pdf', plot = gg_mosaic, width = 6, height = 2.4)
