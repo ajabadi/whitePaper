@@ -31,6 +31,42 @@ gg_data <- plot_grid(tbl)
 # gg_data <- plot_grid(tbl)
 ```
 
+# RNA
+
+```{r}
+rna.sce.matching <- readRDS('rna.sce.matching.umap.rds')
+rna.sce <- readRDS('rna.sce.umap.rds')
+```
+
+```{r}
+# Create colour palettes for stages:
+stages <- c("E4.5", "E5.5", "E6.5", "E7.5")
+# col_palette <- dput(viridisLite::viridis(n = length(stages)))
+col_palette <- c("#440154FF", "#31688EFF", "#35B779FF", "#FDE725FF")
+names(col_palette) <- stages
+## helper function to create UMAP plots coloured by stage
+plot_reducedDims <- function(sce, reducedDim = 'UMAP', 
+                             dims = c(1,2), col_palette) {
+    comps.prefix <- ifelse(reducedDim == 'UMAP', 'UMAP_', 'PC_')
+    df <- data.frame(reducedDim(sce, reducedDim))[,dims]
+    axes <- colnames(df) <- paste0(comps.prefix, dims)
+    df$stage <- sce$stage
+    ggplot(df, aes_string(axes[1], axes[2])) + geom_point(aes_string(col='stage')) +
+        theme_classic()+ scale_color_manual(values = col_palette) + labs(col = 'Stage')
+}
+
+```
+
+```{r}
+gg_rna_pca <- plot_reducedDims(rna.sce.matching, reducedDim = 'PCA', col_palette = col_palette)
+```
+
+```{r}
+gg_rna <- plot_reducedDims(rna.sce.matching, col_palette = col_palette)
+plot_reducedDims(rna.sce, col_palette = col_palette)
+```
+
+
 # Liger
 
 ```{r}
@@ -396,6 +432,7 @@ plot_grid(pls_no.impute, pls_tbl, ncol = 1, rel_widths = c(2,1), rel_heights = c
 
 ```{r}
 ggsave(filename = 'data-overview.pdf', plot = gg_data)
+ggsave(filename = 'rna-umap.pdf', plot = gg_rna + theme(legend.position = 'none'))
 ggsave(filename = 'pls-impute.pdf', plot = pls_impute 
        # + theme(legend.position = 'none')
        , width = 5, height = 5)
