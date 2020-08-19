@@ -51,7 +51,7 @@ col_palette <- c("#440154FF", "#31688EFF", "#35B779FF", "#FDE725FF")
 names(col_palette) <- stages
 
 ## helper function to create UMAP plots coloured by stage
-plot_reducedDims <- function(sce, reducedDim = 'UMAP', 
+plot_reducedDims <- function(sce, reducedDim = 'UMAP',
                              dims = c(1,2), col_palette) {
     comps.prefix <- ifelse(reducedDim == 'UMAP', 'UMAP_', 'PC_')
     df <- data.frame(reducedDim(sce, reducedDim))[,dims]
@@ -81,9 +81,9 @@ cat(sprintf('Running UMAP with parameters %s\n', paste(names(params$umap_params)
 
 ## run UMAP
 set.seed(params$umap_params['run.seed'])
-rna.sce.matching <- runUMAP(rna.sce.matching, dimred="PCA", 
-                            ncomponents = params$umap_params['n_components'], 
-                            n_neighbors = params$umap_params['n_neighbors'], 
+rna.sce.matching <- runUMAP(rna.sce.matching, dimred="PCA",
+                            ncomponents = params$umap_params['n_components'],
+                            n_neighbors = params$umap_params['n_neighbors'],
                             min_dist = 0.35)
 saveRDS(rna.sce, 'content/images/scNMTseq/rna.sce.matching.umap.rds')
 ## ------------------------------ All Cells ------------------------------- ##
@@ -106,9 +106,9 @@ cat(sprintf('Running UMAP with parameters %s\n', paste(names(params$umap_params)
 
 ## run UMAP
 set.seed(params$umap_params['run.seed'])
-rna.sce <- runUMAP(rna.sce, dimred="PCA", 
-                            ncomponents = params$umap_params['n_components'], 
-                            n_neighbors = params$umap_params['n_neighbors'], 
+rna.sce <- runUMAP(rna.sce, dimred="PCA",
+                            ncomponents = params$umap_params['n_components'],
+                            n_neighbors = params$umap_params['n_neighbors'],
                             min_dist = 0.35)
 
 saveRDS(rna.sce, 'content/images/scNMTseq/rna.sce.umap.rds')
