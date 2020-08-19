@@ -10,14 +10,23 @@ output: pdf_document
 library(grid)
 library(gridExtra)
 library(ggplot2)
+library(cowplot)
+library(patchwork)
 ```
+
+```{r}
+# load('data-overview.RData')
+# source('grid.ftable.R')
+# plot_grid(grid.ftable(df_data))
+```
+
+
 
 ```{r}
 load('data-overview.RData')
 mytheme <- gridExtra::ttheme_default(
-    core = list(padding = unit(c(2.5, 2.5), "mm"), bg_params = list(fill = 'white', col=NA),
-            fg_params=list(fontface=1)),
-  colhead=list(fg_params=list(col="navyblue", fontface=1)))
+    core = list(padding = unit(c(2.5, 10.5), "mm"), bg_params = list(fill = 'white', col=NA)),
+  colhead=list(fg_params=list(col="blue", fontface=2, fontsize=11)))
 # 
 # ttheme_minimal(
 #   core=list(bg_params = list(fill = blues9[1:4], col=NA),
@@ -25,10 +34,16 @@ mytheme <- gridExtra::ttheme_default(
 #   colhead=list(fg_params=list(col="navyblue", fontface=4L)),
 #   rowhead=list(fg_params=list(col="orange", fontface=3L)))
 
-colnames(df_data)[3:5] <- c('# cells', '# features', 'Missing values (%)')
+colnames(df_data)[5] <- c('Missing values')
+df_data
+df_data[,5] <- paste0(df_data[,5],'%')
 tbl <- tableGrob(df_data, theme = mytheme, rows = NULL)
+# tbl <- gtable::gtable_add_grob(tbl,
+#         grobs = rectGrob(gp = gpar(fill = NA, lwd = 2)),
+#         t = 2, b = nrow(tbl), l = 1, r = ncol(tbl))
+gg_data <- plot_grid(tbl) +  theme(plot.background = element_rect(color = "black"))
 gg_data <- plot_grid(tbl)
-# gg_data <- plot_grid(tbl)
+cow_data <- gg_data
 ```
 
 # RNA
@@ -56,12 +71,12 @@ plot_reducedDims <- function(sce, reducedDim = 'UMAP',
     theme_classic()+ scale_color_manual(values = col_palette) + labs(col = 'Stage') +
     theme(legend.box.background = element_rect(colour = "black"))
 }
-library(ggplot2)
 ```
 
 ```{r}
-plot_reducedDims(rna.sce.matching, reducedDim = 'UMAP', col_palette = col_palette)
-ggsave('umap-rna.matching.pdf', width = 4, height = 2.3)
+cow_rna_umap <- plot_reducedDims(rna.sce.matching, reducedDim = 'UMAP', col_palette = col_palette)
+cow_rna_umap
+# ggsave('umap-rna.matching.pdf', width = 4, height = 2.3)
 ```
 
 ```{r}
@@ -76,16 +91,14 @@ ggsave('umap-rna.matching.pdf', width = 4, height = 2.3)
 library(liger)
 library(MultiAssayExperiment)
 library(BIRSBIO2020.scNMTseq.LIGER)
-library(ggplot2)
 ```
 ```{r}
-gastru.mae <- readRDS(url('https://cloudstor.aarnet.edu.au/plus/s/Xzf5vCgAEUVgbfQ/download?path=%2Foutput&files=scnmtseq_gastrulation_mae_AllCells.rds'))
-drop_lineages = c('Primitive_endoderm','Visceral_endoderm', 'ExE_ectoderm')
-metadata = read.table("https://cloudstor.aarnet.edu.au/plus/s/Xzf5vCgAEUVgbfQ/download?path=%2Foutput&files=sample-metadata_matching-cells.txt",header=T,sep=",")
-gastru.mae <- gastru.mae[,,grep("rna|met",names(assays(gastru.mae)))]
-gastru.mae <- gastru.mae[, !(gastru.mae$lineage %in% drop_lineages),]
-gastru.mae <- gastru.mae[,gastru.mae$pass_metQC==TRUE & gastru.mae$pass_rnaQC==TRUE]
-
+# gastru.mae <- readRDS(url('https://cloudstor.aarnet.edu.au/plus/s/Xzf5vCgAEUVgbfQ/download?path=%2Foutput&files=scnmtseq_gastrulation_mae_AllCells.rds'))
+# drop_lineages = c('Primitive_endoderm','Visceral_endoderm', 'ExE_ectoderm')
+# metadata = read.table("https://cloudstor.aarnet.edu.au/plus/s/Xzf5vCgAEUVgbfQ/download?path=%2Foutput&files=sample-metadata_matching-cells.txt",header=T,sep=",")
+# gastru.mae <- gastru.mae[,,grep("rna|met",names(assays(gastru.mae)))]
+# gastru.mae <- gastru.mae[, !(gastru.mae$lineage %in% drop_lineages),]
+# gastru.mae <- gastru.mae[,gastru.mae$pass_metQC==TRUE & gastru.mae$pass_rnaQC==TRUE]
 ```
 
 ```{r}
@@ -101,17 +114,33 @@ names(col_palette) <- stages
 ```
 
 
-```{r}
-gg_promoter_view <- liger_plots_promoter[[1]] + labs(x = 'tSNE 1', y = 'tSNE 2', col = '') + scale_color_discrete(labels = c(met = 'met_promoter', rna = 'rna')) + theme(legend.position=c(1,0.05), legend.justification=c(1,0))
+```{r, fig.width=5, fig.height=4}
+## ------------- View
+liger_promoter_view <- liger_plots_promoter[[1]] + labs(x = 'tSNE 1', y = 'tSNE 2', col = '') + scale_color_discrete(labels = c(met = 'met_promoter', rna = 'rna')) + theme(legend.position=c(1,0.05), legend.justification=c(1,0))
     # guides(col = guide_legend(title = ''))
-gg_promoter_stage <- liger_plots_promoter[[2]] + labs(x = 'tSNE 1', y = 'tSNE 2', col = '') + scale_color_manual(values = col_palette, na.value="grey50") +  theme(legend.position=c(1,0), legend.justification=c(1,0), na.value="grey50")
-gg_genebody_view <- liger_plots_genebody[[1]] + labs(x = 'tSNE 1', y = 'tSNE 2', col = '') +
+liger_promoter_stage <- liger_plots_promoter[[2]] + labs(x = 'tSNE 1', y = 'tSNE 2', col = '') + scale_color_manual(values = col_palette, na.value="grey50") +  theme(legend.position=c(1,0), legend.justification=c(1,0), na.value="grey50")
+liger_genebody_view <- liger_plots_genebody[[1]] + labs(x = 'tSNE 1', y = 'tSNE 2', col = '') +
     scale_color_discrete(labels = c(met = 'met_genebody', rna = 'rna'),
-                         na.value = "grey50")  + theme(legend.position = c(0.93, .88),
-                                                       legend.justification = c(0.8, 0),
-                                                       legend.box.background = element_rect(colour = "black"),
-                                                       legend.title=element_blank())
-gg_genebody_stage <- liger_plots_genebody[[2]] + labs(x = 'tSNE 1', y = 'tSNE 2', col = '') + scale_color_manual(values = col_palette, na.value="grey50") + theme(legend.position=c(1,0), legend.justification=c(1,0))
+                         na.value = "grey50")  + theme(
+                           legend.text = element_text(face=2, size=8),
+                           legend.position = c(0.95, .03),
+                           legend.justification = c(0.8, 0),
+                           legend.box.background = element_rect(colour = "black"),
+                           legend.title=element_blank())
+## ------------- Stage
+liger_genebody_stage <- liger_plots_genebody[[2]] + 
+  labs(x = 'tSNE 1', y = 'tSNE 2', col = '') + 
+  scale_color_manual( values = col_palette, na.value="grey50") + 
+  theme(
+    legend.position=c(1,0.02), legend.justification=c(1,0),
+    legend.text = element_text(face=2, size=8),
+    legend.box.background = element_rect(colour = "black"), 
+    legend.title = element_blank()
+  )
+cow_liger_genebody_stage <- liger_genebody_stage
+cow_liger_genebody_stage
+cow_liger_genebody_view <- liger_genebody_view
+cow_liger_genebody_view
 ```
 
 # MOSAIC
@@ -137,7 +166,7 @@ rbindlistWithNames <- function(lst, new_col = "dataset") {
 ```
 
 ```{r}
-load("mosaic/scNMT_seq_MOSAIC/data/cv.stats.stage.noimp.rmEmbryonicLineage.Rdata")
+load(url('https://github.com/arorarshi/scNMT_seq_MOSAIC/blob/master/data/cv.stats.stage.noimp.rmEmbryonicLineage.Rdata?raw=true'))
 
 names(cv.stats) <- c("met_genebody", "met_promoter", "met_cgi", "met_DHS", "rna", 
 "integration")
@@ -169,7 +198,7 @@ names(mode_pallete) <- c("met_genebody", "met_promoter", "met_cgi", "met_DHS", "
 mode_pallete['integration'] <- 'black'
 ```
 
-```{r}
+```{r, fig.width=6, fig.height=2.4}
 gg_mosaic <- ggplot(cv.stats, aes(x = cluster, y = median, col = mode)) + 
     geom_point() + geom_line() + theme_classic() + 
     facet_wrap(
@@ -181,8 +210,11 @@ gg_mosaic <- ggplot(cv.stats, aes(x = cluster, y = median, col = mode)) +
     )  +
     ylab(NULL) +
     theme(strip.background = element_blank(),
-          strip.placement = "outside") +
+          strip.placement = "outside",
+          panel.spacing = unit(2, "lines")) +
     scale_color_manual(values = mode_pallete) + ylim(c(0,1))
+cow_mosaic <- gg_mosaic
+cow_mosaic
 ```
 
 
@@ -297,12 +329,12 @@ names(col_palette) <- stages
 ```
 
 ```{r}
-pls_no.impute <- 
+cow_pls_no.impute <- 
   plot_pls(pls_obj = mmspls, stage = mmspls$stage, col_palette = col_palette)
-pls_no.impute
-pls_impute <- 
+cow_pls_no.impute
+cow_pls_impute <- 
   plot_pls(pls_obj = mmspls.imputed, stage = mmspls$stage, col_palette = col_palette)
-pls_impute
+cow_pls_impute
 ```
 
 ```{r}
@@ -317,102 +349,121 @@ df <- data.frame(
         kmeans_accuracy(variates = x[,1:2], labels = mmspls$stage)
     })
 )
-
-kable(round(t(df), 2))
-```
-
-```{r}
-plot_table <- function(d, ...) {
-    library(gtable)
-    gt <- function(d, colours="black", fill=NA){
-        
-        label_matrix <- as.matrix(d)
-        
-        nc <- ncol(label_matrix)
-        nr <- nrow(label_matrix)
-        n <- nc*nr
-        
-        colours <- rep(colours, length.out = n)
-        fill <- rep(fill, length.out = n)
-        
-        theme <- ttheme_default(base_size = 12, base_colour = "black", base_family = "",
-                                parse = FALSE, padding = unit(c(4, 4), "mm"))
-        ## text for each cell
-        labels <- lapply(seq_len(n), function(ii) 
-            textGrob(label_matrix[ii], gp=gpar(col=colours[ii])))
-        label_grobs <- matrix(labels, ncol=nc)
-        
-        ## define the fill background of cells
-        fill <- lapply(seq_len(n), function(ii) 
-            rectGrob(gp=gpar(fill=fill[ii])))
-        
-        ## some calculations of cell sizes
-        row_heights <- function(m){
-            do.call(unit.c, apply(m, 1, function(l)
-                max(do.call(unit.c, lapply(l, grobHeight)))))
-        }
-        
-        col_widths <- function(m){
-            do.call(unit.c, apply(m, 2, function(l)
-                max(do.call(unit.c, lapply(l, grobWidth)))))
-        }
-        
-        ## place labels in a gtable
-        g <- gtable_matrix("table", grobs=label_grobs, 
-                           widths=col_widths(label_grobs) + unit(4,"mm"), 
-                           heights=row_heights(label_grobs) + unit(4,"mm"))
-        
-        ## add the background
-        g <- gtable_add_grob(g, fill, t=rep(seq_len(nr), each=nc), 
-                             l=rep(seq_len(nc), nr), z=0, name="fill")
-        
-        g
-    }
-    
-    core <- gt(d, ...)
-    colhead <- gt(t(colnames(d)))
-    rowhead <- gt(c("", rownames(d)))
-    g <- rbind(colhead, core, size = "first")
-    g <- cbind(rowhead, g, size = "last")
-    plot_grid(g)
-}
-
-```
-
-```{r}
-gg_accuracy <- plot_table(round(t(df), 2))
-# gridExtra::grid.table(round(t(df), 2))
-# plot_grid(gridExtra::grid.table(round(t(df), 2)))
-```
-
-
-```{r}
+df <- round(df, 2)
+df$'Data view' <- rownames(df)
+df <- df[,c(3,1:2)]
 mytheme <- gridExtra::ttheme_default(
-    core = list(padding = unit(c(2.5, 2.5), "mm")))
-tableGrob(round(t(df), 2), theme = ttheme_minimal())
-pls_tbl <- tableGrob(round(t(df), 2), theme = mytheme)
-gg_pls_kmeans <- plot_grid(pls_tbl)
+    core = list(padding = unit(c(2.5, 8.5), "mm"), bg_params = list(fill = 'white', col=NA)),
+  colhead=list(fg_params=list(col="blue", fontface=2, fontsize=11)))
+tbl <- tableGrob(df, theme = mytheme, rows = NULL)
+# tbl <- gtable::gtable_add_grob(tbl,
+#         grobs = rectGrob(gp = gpar(fill = NA, lwd = 2)),
+#         t = 2, b = nrow(tbl), l = 1, r = ncol(tbl))
+gg_pls_impute <- plot_grid(tbl)
+cow_pls_accuracy <- gg_pls_impute
+cow_pls_accuracy
 ```
 
-```{r}
-p <- pls_no.impute
+# ```{r}
+# plot_table <- function(d, ...) {
+#     library(gtable)
+#     gt <- function(d, colours="black", fill=NA){
+#         
+#         label_matrix <- as.matrix(d)
+#         
+#         nc <- ncol(label_matrix)
+#         nr <- nrow(label_matrix)
+#         n <- nc*nr
+#         
+#         colours <- rep(colours, length.out = n)
+#         fill <- rep(fill, length.out = n)
+#         
+#         theme <- ttheme_default(base_size = 12, base_colour = "black", base_family = "",
+#                                 parse = FALSE, padding = unit(c(4, 4), "mm"))
+#         ## text for each cell
+#         labels <- lapply(seq_len(n), function(ii) 
+#             textGrob(label_matrix[ii], gp=gpar(col=colours[ii])))
+#         label_grobs <- matrix(labels, ncol=nc)
+#         
+#         ## define the fill background of cells
+#         fill <- lapply(seq_len(n), function(ii) 
+#             rectGrob(gp=gpar(fill=fill[ii])))
+#         
+#         ## some calculations of cell sizes
+#         row_heights <- function(m){
+#             do.call(unit.c, apply(m, 1, function(l)
+#                 max(do.call(unit.c, lapply(l, grobHeight)))))
+#         }
+#         
+#         col_widths <- function(m){
+#             do.call(unit.c, apply(m, 2, function(l)
+#                 max(do.call(unit.c, lapply(l, grobWidth)))))
+#         }
+#         
+#         ## place labels in a gtable
+#         g <- gtable_matrix("table", grobs=label_grobs, 
+#                            widths=col_widths(label_grobs) + unit(4,"mm"), 
+#                            heights=row_heights(label_grobs) + unit(4,"mm"))
+#         
+#         ## add the background
+#         g <- gtable_add_grob(g, fill, t=rep(seq_len(nr), each=nc), 
+#                              l=rep(seq_len(nc), nr), z=0, name="fill")
+#         
+#         g
+#     }
+#     
+#     core <- gt(d, ...)
+#     colhead <- gt(t(colnames(d)))
+#     rowhead <- gt(c("", rownames(d)))
+#     g <- rbind(colhead, core, size = "first")
+#     g <- cbind(rowhead, g, size = "last")
+#     plot_grid(g)
+# }
+# 
+# ```
+# 
+# ```{r}
+# gg_accuracy <- plot_table(round(df, 2))
+# gg_accuracy
+# # gridExtra::grid.table(round(t(df), 2))
+# # plot_grid(gridExtra::grid.table(round(t(df), 2)))
+# ```
+# 
+# 
+# ```{r}
+# mytheme <- gridExtra::ttheme_default(
+#     core = list(padding = unit(c(2.5, 2.5), "mm")))
+# tableGrob(round(t(df), 2), theme = ttheme_minimal())
+# pls_tbl <- tableGrob(round(t(df), 2), theme = mytheme)
+# gg_pls_kmeans <- plot_grid(pls_tbl)
+# plot_grid(gg_pls_kmeans)
+# ```
+# 
+# ```{r}
+# p <- pls_no.impute
+# 
+# inset <- pls_tbl
+# 
+# ggdraw(p + theme_half_open(12)) +
+#   draw_plot(inset, 0.5, 0, .9, .4, scale = 0.17) +
+#   draw_plot_label(
+#     c("A", "B"),
+#     c(0, 0.45),
+#     c(1, 0.95),
+#     size = 12
+#   )
+# ```
+# 
+# ```{r}
+# plot_grid(pls_no.impute, pls_tbl, ncol = 1, rel_widths = c(2,1), rel_heights = c(9,1))
+# ```
+# 
 
-inset <- pls_tbl
-
-ggdraw(p + theme_half_open(12)) +
-  draw_plot(inset, 0.5, 0, .9, .4, scale = 0.17) +
-  draw_plot_label(
-    c("A", "B"),
-    c(0, 0.45),
-    c(1, 0.95),
-    size = 12
-  )
+```{r, fig.width=8}
+# cowplot::plot_grid(cow_pls_impute)
+# cowplot::plot_grid(cow_pls_accuracy)
+# cowplot::plot_grid(cow_pls_impute, cow_pls_accuracy, rel_heights = c(7,1), nrow=1)
 ```
-
-```{r}
-plot_grid(pls_no.impute, pls_tbl, ncol = 1, rel_widths = c(2,1), rel_heights = c(9,1))
-```
-
 
 
 # Figure
@@ -433,17 +484,48 @@ plot_grid(pls_no.impute, pls_tbl, ncol = 1, rel_widths = c(2,1), rel_heights = c
 <!-- ) -->
 <!-- ``` -->
 
+```{r, fig.height=12, fig.width=8}
+library(patchwork)
+void <- ggplot() + theme_void()
+# layout <- c(
+#   area(t = 1, l = 1),
+#   area(t = 1, l = 5)
+# )
+patch_liger_genebody_stage <- cow_liger_genebody_stage + 
+  guides(color = guide_legend(override.aes = list(size=1),
+                              keywidth = 0.1,
+                              keyheight=0.1,
+                              default.unit="inch")) +
+  theme(legend.text = element_text(face=2, size=6), legend.spacing.x = unit(0, 'mm'))
+
+patch_liger_genebody_view <- cow_liger_genebody_view + 
+  guides(color = guide_legend(override.aes = list(size=3),
+                              keywidth = 0.1,
+                              keyheight=0.1,
+                              default.unit="inch")) + 
+   theme(legend.text = element_text(face=2, size=5))
+
+(plot_spacer()|cow_rna_umap)/
+  (cow_mosaic)/
+  (patch_liger_genebody_stage + void + patch_liger_genebody_view + plot_layout(widths = c(4,1,4))) /
+  (cow_pls_impute) + plot_layout()
+```
+
+# ```{r, fig.width=7}
+# cow_data
+# ```
+
 ```{r}
-ggsave(filename = 'data-overview.pdf', plot = gg_data)
-ggsave(filename = 'rna-umap.pdf', plot = gg_rna + theme(legend.position = 'none'))
-ggsave(filename = 'pls-impute.pdf', plot = pls_impute 
+ggsave(filename = 'data-overview.pdf', plot = cow_data, height=3)
+ggsave(filename = 'rna-umap.pdf', plot = cow_rna_umap, width = 5, height = 4)
+ggsave(filename = 'pls-impute.pdf', plot = cow_pls_impute + theme(legend.position = 'none'),
        # + theme(legend.position = 'none')
-       , width = 6, height = 3)
-ggsave(filename = 'pls-no_impute.pdf', plot = pls_no.impute + theme(legend.title = element_blank()), width = 5, height = 5)
-ggsave(filename = 'pls-kmeans.pdf', plot = plot_grid(pls_tbl) + theme_void())
-ggsave(filename = 'mosaic.pdf', plot = gg_mosaic, width = 6, height = 2.4)
-ggsave(filename = 'liger-stage.pdf', plot = gg_genebody_stage + theme(legend.box.background = element_rect(colour = "black"), legend.title = element_blank()), width = 5, height = 4)
-ggsave(filename = 'liger-view.pdf', plot = gg_genebody_view,  width = 5, height = 4)
+       , width = 8, height = 5)
+# ggsave(filename = 'pls-no_impute.pdf', plot = pls_no.impute + theme(legend.title = element_blank()), width = 5, height = 5)
+ggsave(filename = 'pls-kmeans.pdf', plot = cow_pls_accuracy)
+ggsave(filename = 'mosaic.pdf', plot = cow_mosaic, width = 6, height = 2.4)
+ggsave(filename = 'liger-stage.pdf', plot = cow_liger_genebody_stage, width = 5, height = 4)
+ggsave(filename = 'liger-view.pdf', plot = cow_liger_genebody_view,  width = 5, height = 4)
 ```
 
 
